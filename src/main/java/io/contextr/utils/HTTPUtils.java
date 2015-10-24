@@ -35,7 +35,7 @@ public class HTTPUtils {
 	public static <S, T> T sendRequest(S requestPayload, String requestURL, HttpMethod requestMethod,
 			Class<T> responseClass) {
 		
-		sleep(500);
+//		sleep(500);
 		
 		RestTemplate restTemplate = new RestTemplate();
 

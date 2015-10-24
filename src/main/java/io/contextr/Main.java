@@ -41,66 +41,66 @@ public class Main implements CommandLineRunner {
 	@Override
 	public void run(String... args) throws Exception {
 
-		args = new String[] { "titles", "foo", "output" };
+		args = new String[] { "titles", "Physics", "output", "en" };
 
 		List<PersistModel> jsonOut = new ArrayList<>();
 
-		if (args.length != 3) {
+		if (args.length != 4) {
 			helpAndQuit();
 		} else {
 			String filePath = args[0];
 			String profile = args[1];
 			String outputPath = args[2];
+			String langPrefix = args[3];
 
 			List<String> titles = fileUtils.readFile(filePath);
-			List<String> jsonUrls = new ArrayList<>();
-			String jsonBaseURL = "https://en.wikipedia.org/w/api.php?action=query&prop=extracts&format=json&explaintext=&redirects=&titles=";
-			String htmlBaseURL = "https://en.wikipedia.org/wiki/";
-			int MAX_NUM_LINKS = 50;
+			List<String> requestTitles = new ArrayList<>();
+			String jsonBaseURL = "https://" + langPrefix +".wikipedia.org/w/api.php?action=query&prop=extracts&format=json&explaintext=&redirects=&titles=";
+			String jsonFirstParagraphURL = "https://" + langPrefix +".wikipedia.org/w/api.php?action=query&prop=extracts|revisions&format=json&exintro=&explaintext=&redirects=&titles=";
+			String htmlBaseURL = "https://" + langPrefix +".wikipedia.org/wiki/";
 
-			titles.stream().map(httpUtils::urlEncode).forEach(title -> {
+			titles.parallelStream().map(httpUtils::urlEncode).forEach(title -> {
+				requestTitles.add(title);
 				String wikipediaHTML = HTTPUtils.sendRequest("", htmlBaseURL + title, HttpMethod.GET, String.class);
 				Document doc = Jsoup.parse(wikipediaHTML);
 				Elements links = doc.select("a[href]"); // a with href
 
 				boolean foundBody = false;
 				for (Element link : links) {
-					if (jsonUrls.size() < MAX_NUM_LINKS) {
-						String linkTitle = link.attr("href");
-						System.out.println(linkTitle);
+					String linkTitle = link.attr("href");
+					System.out.println(linkTitle);
 
-						outerLoop: for (int i = linkTitle.length() - 1; i >= 0; i--) {
+					outerLoop: for (int i = linkTitle.length() - 1; i >= 0; i--) {
 
-							switch (linkTitle.charAt(i)) {
-							case '/':
-								linkTitle = linkTitle.substring(i + 1);
-							case '.':
-								break outerLoop;
-							}
-
+						switch (linkTitle.charAt(i)) {
+						case '/':
+							linkTitle = linkTitle.substring(i + 1);
+						case '.':
+							break outerLoop;
 						}
 
-						if (!foundBody) {
-							foundBody = linkTitle.trim().startsWith("#");
-						}
-						else
-						{
-							jsonUrls.add(jsonBaseURL + linkTitle);
-						}
+					}
+
+					if (!foundBody) {
+						foundBody = linkTitle.trim().startsWith("#");
+					} else {
+						requestTitles.add(linkTitle);
 					}
 				}
 			});
 
-			jsonUrls.forEach(jsonURL -> {
-				WikipediaJSONModel wikipediaPlain = HTTPUtils.sendRequest("", jsonURL, HttpMethod.GET,
+			requestTitles.parallelStream().forEach(jsonURL -> {
+				WikipediaJSONModel wikipediaFullText = HTTPUtils.sendRequest("", jsonBaseURL + jsonURL, HttpMethod.GET,
 						WikipediaJSONModel.class);
-				String cleanText = wikipediaPlain.getText().replaceAll("\\\\n", " ").replaceAll("===", "")
-						.replaceAll("==", "").replaceAll("\\s", " ").trim();
-				System.out.println("+++++++");
-				System.out.println(jsonURL);
-				System.out.println("-------");
-				System.out.println(cleanText);
-				jsonOut.add(new PersistModel(profile, cleanText));
+				WikipediaJSONModel wikipediaFirstParagraph = HTTPUtils.sendRequest("", jsonFirstParagraphURL + jsonURL,
+						HttpMethod.GET, WikipediaJSONModel.class);
+
+				String cleanText = wikipediaFullText.getText().replace(wikipediaFirstParagraph.getText(), "")
+						.replaceAll("\\\\n", " ").replaceAll("===", "").replaceAll("==", "").replaceAll("\\s", " ")
+						.replace("\\", "\"").trim();
+				if (!cleanText.isEmpty()) {
+					jsonOut.add(new PersistModel(profile, cleanText));
+				}
 			});
 			fileUtils.writeToFile(outputPath, new ObjectMapper().writeValueAsString(jsonOut));
 		}
@@ -108,9 +108,11 @@ public class Main implements CommandLineRunner {
 	}
 
 	private static void helpAndQuit() {
-		System.out.println("Invalid arguments!\n" + "Arguments: <filepath> <profile>\n\n"
-				+ "<filepath> \t- path to file of URL List\n"
-				+ "<profile> \t- profile under which to file the sources");
+		System.out.println("Invalid arguments!\n" + "Arguments: <input filepath> <profile> <output filepath> <lang prefix>\n\n"
+				+ "<input filepath> \t- path to file of URL List\n"
+				+ "<profile> \t- profile under which to file the sources\n"
+				+ "<output filepath> \t- path to file to write to\n"
+				+ "<lang prefix> \t- prefix of language, as used by Wikipedia\n");
 		System.exit(-1);
 	}
 }
