@@ -1,12 +1,15 @@
 package io.contextr.utils;
 
-import org.apache.log4j.Logger;
-
+import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Scanner;
+
+import org.apache.log4j.Logger;
 
 public class FileUtils {
 
@@ -28,5 +31,25 @@ public class FileUtils {
 			}
 		}
 		return null;
+	}
+
+	public void writeToFile(String filePath, String contents) {
+		File file = new File(filePath);
+
+		FileWriter fw;
+		try {
+			// if file doesnt exists, then create it
+			if (!file.exists()) {
+				file.createNewFile();
+			}
+
+			fw = new FileWriter(file.getAbsoluteFile());
+			BufferedWriter bw = new BufferedWriter(fw);
+			bw.write(contents);
+			bw.close();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+
 	}
 }

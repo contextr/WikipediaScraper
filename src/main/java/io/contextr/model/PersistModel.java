@@ -2,7 +2,7 @@ package io.contextr.model;
 
 import org.springframework.data.annotation.Id;
 
-public class RepositoryModel {
+public class PersistModel {
 	
 	@Id
     private String id;
@@ -10,12 +10,12 @@ public class RepositoryModel {
 	String profile;
 	String text;
 
-	public RepositoryModel(String label, String text) {
+	public PersistModel(String label, String text) {
 		this.profile = label;
 		this.text = text;
 	}
 	
-	public RepositoryModel() {
+	public PersistModel() {
 	}
 
 	public String getLabel() {

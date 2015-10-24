@@ -6,6 +6,7 @@ import java.util.List;
 import org.apache.log4j.Logger;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
@@ -13,7 +14,9 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.http.HttpMethod;
 
-import io.contextr.model.RepositoryModel;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import io.contextr.model.PersistModel;
 import io.contextr.model.WikipediaJSONModel;
 import io.contextr.repository.Repository;
 import io.contextr.utils.FileUtils;
@@ -38,13 +41,16 @@ public class Main implements CommandLineRunner {
 	@Override
 	public void run(String... args) throws Exception {
 
-//		args = new String[] { "titles", "foo" };
+		args = new String[] { "titles", "foo", "output" };
 
-		if (args.length != 2) {
+		List<PersistModel> jsonOut = new ArrayList<>();
+
+		if (args.length != 3) {
 			helpAndQuit();
 		} else {
 			String filePath = args[0];
 			String profile = args[1];
+			String outputPath = args[2];
 
 			List<String> titles = fileUtils.readFile(filePath);
 			List<String> jsonUrls = new ArrayList<>();
@@ -57,21 +63,32 @@ public class Main implements CommandLineRunner {
 				Document doc = Jsoup.parse(wikipediaHTML);
 				Elements links = doc.select("a[href]"); // a with href
 
-				// add new links
-				links.forEach(link -> {
+				boolean foundBody = false;
+				for (Element link : links) {
 					if (jsonUrls.size() < MAX_NUM_LINKS) {
 						String linkTitle = link.attr("href");
+						System.out.println(linkTitle);
+
 						outerLoop: for (int i = linkTitle.length() - 1; i >= 0; i--) {
+
 							switch (linkTitle.charAt(i)) {
 							case '/':
-								jsonUrls.add(jsonBaseURL + linkTitle.substring(i + 1));
+								linkTitle = linkTitle.substring(i + 1);
 							case '.':
 								break outerLoop;
 							}
+
+						}
+
+						if (!foundBody) {
+							foundBody = linkTitle.trim().startsWith("#");
+						}
+						else
+						{
+							jsonUrls.add(jsonBaseURL + linkTitle);
 						}
 					}
-				});
-
+				}
 			});
 
 			jsonUrls.forEach(jsonURL -> {
@@ -83,9 +100,9 @@ public class Main implements CommandLineRunner {
 				System.out.println(jsonURL);
 				System.out.println("-------");
 				System.out.println(cleanText);
-				repository.save(new RepositoryModel(profile, cleanText));
+				jsonOut.add(new PersistModel(profile, cleanText));
 			});
-
+			fileUtils.writeToFile(outputPath, new ObjectMapper().writeValueAsString(jsonOut));
 		}
 
 	}

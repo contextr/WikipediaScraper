@@ -2,7 +2,7 @@ package io.contextr.repository;
 
 import org.springframework.data.mongodb.repository.MongoRepository;
 
-import io.contextr.model.RepositoryModel;
+import io.contextr.model.PersistModel;
 
-public interface Repository extends MongoRepository<RepositoryModel, String> {
+public interface Repository extends MongoRepository<PersistModel, String> {
 }
